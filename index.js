@@ -1,6 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const loki = require('lokijs');
+const fileType = require('file-type');
 
 const db = new loki('loki.json', {persistenceMethode: 'fs'});
 
@@ -17,7 +18,7 @@ const loadCollection = function(colName, db) {
 };
 
 const imageFilter = function(req, file, cb) {
-  // accept image only
+  // checking extension
   if (!file.originalname.match(/\.(jpg|jpeg|png)$/)) {
     return cb(
       new Error('Only the following formats are allowed! (jpeg, jpg, png)'),
@@ -29,11 +30,18 @@ const imageFilter = function(req, file, cb) {
 
 const upload = multer({
   dest: 'images',
-  fieldSize: '500000',
+  fileSize: 1024 * 1024 * 2, //2MB
+  storage: multer.memoryStorage(),
   fileFilter: imageFilter,
 });
 
 app.post('/profile', upload.single('image'), async (req, res) => {
+  // checking filetype
+  const {ext} = fileType(req.file.buffer);
+  if (!ext.match(/\.(jpg|jpeg|png)$/)) {
+    return res.sendStatus(400);
+  }
+
   try {
     const col = await loadCollection('images', db);
     const data = col.insert(req.file);
